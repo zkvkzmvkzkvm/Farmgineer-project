@@ -1,0 +1,27 @@
+#include <Wire.h> // I2C 통신을 위한 라이브러리 포함
+// 센서 핀 정의
+#define CDS_PIN A0 // 조도 센서
+#define SOIL_PIN A1 // 토양 습도 센서
+#define WATER_PIN A2 // 수위 센서
+#define HUMAN_PIN 3 // PIR 모션 센서
+#define TEMP_PIN A3 // LM35 센서
+void setup() { // setup() 함수
+ Wire.begin(8); // I2C 슬레이브 주소 8로 설정
+ Wire.onRequest(sendSensorData); // 마스터 요청 시 호출될 함수 등록
+ pinMode(HUMAN_PIN, INPUT); // PIR 센서 입력 모드 설정
+ Serial.begin(9600); // 시리얼 시작
+}
+void loop() { //loop() 함수
+}
+void sendSensorData() { // 마스터 요청 시 센서 데이터를 문자열로 전송하는 함수
+ int cds = analogRead(CDS_PIN); // 조도 값 읽기
+ int soil = analogRead(SOIL_PIN); // 토양 습도 값 읽기
+ int water = analogRead(WATER_PIN); // 수위 값 읽기
+ int human = digitalRead(HUMAN_PIN); // PIR 센서 감지 여부 읽기
+ int temp = analogRead(TEMP_PIN); // 온도 값 읽기
+ String data = String(cds) + "," + String(soil) + "," + String(water) + "," +
+ String(temp) + "," + String(human); // 센서 값을 CSV 형식의 문자열로
+결합
+ Wire.write(data.c_str()); // 마스터에 문자열 전송
+ Serial.println("[슬레이브 전송] " + data); // 시리얼 모니터에 출력
+}

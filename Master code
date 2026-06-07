@@ -1,0 +1,101 @@
+#include <Adafruit_NeoPixel.h> // 네오픽셀 LED 제어용 라이브러리
+#include <LiquidCrystal_I2C.h> // I2C LCD 제어용 라이브러리
+#include <Wire.h> // I2C 통신 라이브러리
+// 핀 정의
+#define NUMPIXELS 8 // 사용하는 led가 8비트 led기에 8로 설정
+#define LED_PIN 6 // led핀 설정
+Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800); // 네오픽
+셀 설정
+#define PUMP_AA 5 // 워터펌프 제어 핀 A
+#define PUMP_AB 9 // 워터펌프 제어 핀 B
+#define FAN_PIN 4 // 팬 제어 핀
+//RGB LED 핀들 설정
+#define RED_LED 8 // 빨간색 led핀 설정
+#define GREEN_LED 12 // 초록색 led핀 설정
+#define BLUE_LED 13 // 파란색 led 핀
+LiquidCrystal_I2C lcd(0x27, 20, 4); // I2C LCD 초기화 (주소 0x27, 20x4 크기)
+void setup() { //setup()함수
+Serial.begin(9600); // 시리얼 시작
+ Wire.begin(); // I2C 시작
+ lcd.init(); // LCD 초기화
+ lcd.backlight(); // 백라이트 켜기
+ pixels.begin(); // 네오픽셀 초기화
+ pinMode(PUMP_AA, OUTPUT); // AA핀 출력으로 설정
+ pinMode(PUMP_AB, OUTPUT); // AB핀 출력으로 설정
+ pinMode(FAN_PIN, OUTPUT); // 환기 팬 출력으로 설정
+ pinMode(RED_LED, OUTPUT); // 빨간색 led핀 출력으로 설정
+ pinMode(GREEN_LED, OUTPUT); // 초록색 led핀 출력으로 설정
+ pinMode(BLUE_LED, OUTPUT); // 파란색 led핀 출력으로 설정
+ // 시작 메시지
+ lcd.setCursor(0, 0);
+ lcd.print("Smart Farm Start!"); // lcd디스플레이에 출력
+ delay(1000); // 대기
+ lcd.clear(); // lcd 디스플레이 초기화
+}
+void loop() { // loop()함수
+ Wire.requestFrom(8, 32); // 슬레이브로부터 데이터 요청
+ String received = ""; // 문자열 객체 생성
+ while (Wire.available()) { // I2C 버퍼에 읽을 수 있는 데이터가 있는지
+ char c = Wire.read(); // 한 글자씩 읽음
+ received += c; // String received에 하나씩 추가
+ }
+ if (received.length() > 0) { // received의 길이가 0보다 크면
+ int cds, soil, water, temp, human; // 변수들 지정
+ sscanf(received.c_str(), "%d,%d,%d,%d,%d", &cds, &soil, &water, &temp,
+&human);
+ // CSV 문자열을 정수값으로 스캔
+// LCD에 센서 값 출력
+ lcd.setCursor(0, 0); // 커서를 0,0에 둔다
+ lcd.print("L:"); lcd.print(cds); // 조도값 출력
+ lcd.print(" T:"); lcd.print(temp); // 온도값 출력
+ lcd.print(" S:"); lcd.print(soil); // 토양 습도값 출력
+ lcd.setCursor(0, 1); // 커서를 0,1에 둔다
+ lcd.print("W:"); lcd.print(water); // 물 수위 값 출력
+ lcd.print(" P:"); lcd.print(human); // 사람 감지 센서 값 출력
+ // 조도 낮을 경우 LED 조명 ON
+ if (cds < 1007) { // 조도값이 1007보다 작을경우
+ for (int i = 0; i < NUMPIXELS; i++) { //반복문
+ pixels.setPixelColor(i, pixels.Color(0, 150, 0)); // 식물 생장에 도움을 주는 초록
+색
+ }
+ pixels.show(); // led 키는 함수
+ } else { // 그 외에
+ pixels.clear(); // led 초기화
+ pixels.show(); // led 키는 함수
+ }
+// 토양 습도 낮으면 워터펌프 작동
+ if (soil > 700) { // 토양 습도 값이 700보다 작으면
+ digitalWrite(PUMP_AA, HIGH); // 펌프 작동
+ digitalWrite(PUMP_AB, LOW); // 펌프 끄기
+ } else { //그외에
+ digitalWrite(PUMP_AA, LOW); // 펌프 끄기
+ digitalWrite(PUMP_AB, LOW) // 펌프 끄기
+ }
+ // 온도값이 높으면 팬 작동
+ if (temp > 500) { // 온도값이 500보다 크면
+ digitalWrite(FAN_PIN, HIGH); // 팬 작동
+ } else { //그외의 경우에
+ digitalWrite(FAN_PIN, LOW); // 팬 끄기
+ }
+ // 사람이 감지되면 빨간 LED, 수위 낮으면 파란 LED, 사람이 감지되지않으면 초록
+LED
+ if (human == 1) { // 사람 감지 세선 값이 1이면
+ digitalWrite(RED_LED, HIGH); // 빨간색 led 키기
+ digitalWrite(GREEN_LED, LOW); // 초록색 led 끄기
+ digitalWrite(BLUE_LED, LOW); // 파란색 led 끄기
+ } else if (water < 300) {
+ digitalWrite(RED_LED, LOW); // 빨간색 led 끄기
+ digitalWrite(GREEN_LED, LOW); // 초록색 led 끄기
+ digitalWrite(BLUE_LED, HIGH); // 파란색 led 키기
+ } else {
+ digitalWrite(RED_LED, LOW); // 빨간색 led 끄기
+ digitalWrite(GREEN_LED, HIGH); // 초록색 led 키기
+ digitalWrite(BLUE_LED, LOW); // 파란색 led 끄기
+ }
+ // 시리얼 모니터에 출력
+ Serial.println("[센서 데이터]"); //형식 출력
+ Serial.println(received); //받은 값 출력
+ Serial.println("------------------"); //형식 출력
+ }
+ delay(2000); // 2초 대기
+}
